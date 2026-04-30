@@ -1,0 +1,332 @@
+{% extends 'electives/base.html' %}
+{% block title %}Admin Panel{% endblock %}
+{% block extra_css %}
+<style>
+  .admin-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1.5rem; }
+  .action-card { background:#fff; border-radius:12px; padding:1.2rem; box-shadow:0 2px 12px rgba(0,0,0,.08); text-align:center; border-top:4px solid #6c63ff; }
+  .stat-row { display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin-bottom:1.5rem; }
+  .stat-box { background:#fff; border-radius:10px; padding:1rem; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.06); transition:all 0.3s; }
+  .big { font-size:1.8rem; font-weight:800; }
+  .small { font-size:.8rem; color:#999; }
+  .badge-confirmed { background:#28a745; color:#fff; padding:.3rem .7rem; border-radius:20px; font-size:.78rem; }
+  .badge-waitlisted { background:#ffc107; color:#000; padding:.3rem .7rem; border-radius:20px; font-size:.78rem; }
+  .badge-not { background:#dc3545; color:#fff; padding:.3rem .7rem; border-radius:20px; font-size:.78rem; }
+  .badge-override { background:#6f42c1; color:#fff; padding:.2rem .6rem; border-radius:12px; font-size:.72rem; }
+  .btn-xs { padding:.25rem .6rem; font-size:.75rem; border-radius:6px; border:none; cursor:pointer; text-decoration:none; display:inline-block; margin:1px; font-weight:600; }
+  .btn-confirm { background:#28a745; color:#fff; }
+  .btn-waitlist { background:#ffc107; color:#000; }
+  .btn-reassign { background:#17a2b8; color:#fff; }
+  .flash { animation: flashUpdate 1.2s ease; }
+  @keyframes flashUpdate { 0%{background:#fffbcc;} 100%{background:#fff;} }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; }
+  th { background:#f8f9fa; color:#666; font-size:.75rem; text-transform:uppercase; padding:.6rem .8rem; border-bottom:2px solid #eee; text-align:left; }
+  td { padding:.6rem .8rem; border-bottom:1px solid #f0f0f0; vertical-align:middle; }
+  tr:hover td { background:#fafafa; }
+  @media(max-width:900px){ .admin-grid,.stat-row{ grid-template-columns:1fr 1fr; } }
+  @media(max-width:600px){ .admin-grid,.stat-row{ grid-template-columns:1fr; } }
+</style>
+{% endblock %}
+{% block content %}
+
+<div style="background:linear-gradient(135deg,#6c63ff,#20c997);color:white;padding:2rem;border-radius:12px;margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h1 style="margin:0;">Admin Control Panel</h1>
+    <p style="opacity:.8;margin:.4rem 0 0;">Priority-Based Elective Allotment Management</p>
+  </div>
+  <div style="font-size:.8rem;background:rgba(255,255,255,.15);padding:.4rem .9rem;border-radius:20px;" id="lastRefresh">
+    Live updates active
+  </div>
+</div>
+
+{% if messages %}
+<div style="margin-bottom:1rem;">
+  {% for message in messages %}
+  <div style="padding:.75rem 1rem;border-radius:8px;margin-bottom:.5rem;
+    {% if message.tags == 'success' %}background:#d4edda;color:#155724;
+    {% elif message.tags == 'warning' %}background:#fff3cd;color:#856404;
+    {% else %}background:#f8d7da;color:#721c24;{% endif %}">
+    {{ message }}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Stats — updated live -->
+<div class="stat-row">
+  <div class="stat-box"><div class="big" id="stat-students">{{ total_students }}</div><div class="small">Total Students</div></div>
+  <div class="stat-box"><div class="big" id="stat-confirmed" style="color:#28a745;">{{ confirmed }}</div><div class="small">Confirmed</div></div>
+  <div class="stat-box"><div class="big" id="stat-waitlisted" style="color:#ffc107;">{{ waitlisted }}</div><div class="small">Waitlisted</div></div>
+  <div class="stat-box"><div class="big" id="stat-not" style="color:#dc3545;">{{ not_allotted }}</div><div class="small">Not Allotted</div></div>
+  <div class="stat-box"><div class="big" style="color:#6c63ff;" id="stat-ratio">{{ confirmed }}/{{ total_students }}</div><div class="small">Allotted / Total</div></div>
+</div>
+
+<!-- Action Cards -->
+<div class="admin-grid">
+  <div class="action-card">
+    <h3>Run Allotment</h3>
+    <form method="post" action="{% url 'run_allotment' %}" onsubmit="return confirm('Re-run FCFS? This clears non-confirmed allotments.')">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary" style="width:100%;">Run Now</button>
+    </form>
+  </div>
+  <div class="action-card">
+    <h3>Export CSV</h3>
+    <a href="{% url 'export_csv' %}" class="btn btn-success" style="display:block;">Download CSV</a>
+  </div>
+  <div class="action-card">
+    <h3>Export PDF</h3>
+    <a href="{% url 'export_allotment_pdf' %}" class="btn btn-danger" style="display:block;">Download PDF</a>
+  </div>
+  <div class="action-card">
+    <h3>Analytics</h3>
+    <a href="{% url 'analytics' %}" class="btn btn-secondary" style="display:block;">Open Dashboard</a>
+  </div>
+  <div class="action-card">
+    <h3>Results</h3>
+    <a href="{% url 'results' %}" class="btn btn-secondary" style="display:block;">View Results</a>
+  </div>
+  <div class="action-card">
+    <h3>Upload CSV</h3>
+    <a href="{% url 'upload_results' %}" class="btn btn-warning" style="display:block;">Open Upload</a>
+  </div>
+</div>
+
+<!-- Live Seat Overview -->
+<div class="card p-3" style="margin-bottom:1.5rem;">
+  <h2>Live Seat Overview
+    <span style="font-size:.75rem;color:#28a745;font-weight:400;">● LIVE</span>
+  </h2>
+  <div id="seat-table-area"><p style="color:#999;">Loading...</p></div>
+</div>
+
+<!-- Branch Quota vs Actual -->
+{% if elective_stats %}
+<div class="card p-3" style="margin-bottom:1.5rem;">
+  <h2>Branch Quota vs Actual</h2>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr><th>Elective</th><th>Total</th><th>Confirmed</th><th>Waitlisted</th><th>Remaining</th><th>Rank-1 Demand</th><th>Branch Breakdown</th></tr>
+      </thead>
+      <tbody>
+        {% for stat in elective_stats %}
+        <tr>
+          <td><strong>{{ stat.elective.code }}</strong><br><small style="color:#666;">{{ stat.elective.name }}</small></td>
+          <td>{{ stat.elective.total_seats }}</td>
+          <td><span style="color:#28a745;font-weight:700;">{{ stat.filled }}</span></td>
+          <td><span style="color:#ffc107;font-weight:700;">{{ stat.waitlisted }}</span></td>
+          <td><span style="color:#dc3545;font-weight:700;">{{ stat.remaining }}</span></td>
+          <td>{{ stat.demand }}</td>
+          <td>
+            {% if stat.quota_vs_actual %}
+              {% for q in stat.quota_vs_actual %}
+              <span style="display:inline-block;background:#f0f0f0;border-radius:6px;padding:2px 8px;margin:2px;font-size:.8rem;">
+                <strong>{{ q.branch }}</strong>: {{ q.actual }}/{{ q.quota }}
+                {% if q.actual >= q.quota %}<span style="color:#dc3545;">●</span>
+                {% else %}<span style="color:#28a745;">●</span>{% endif %}
+              </span>
+              {% endfor %}
+            {% else %}<span style="color:#999;font-size:.85rem;">No branch quota</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Allotments Table — fully live via AJAX -->
+<div class="card p-3" style="margin-bottom:1.5rem;">
+  <h2>All Allotments — Override Controls
+    <span style="font-size:.75rem;color:#28a745;font-weight:400;">● Auto-refreshing</span>
+  </h2>
+  <p style="color:#666;font-size:.85rem;margin-bottom:1rem;">
+    Reassign only shown for students who have submitted preferences.
+  </p>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>USN</th><th>Name</th><th>Branch</th><th>CGPA</th>
+          <th>Elective</th><th>Status</th><th>Rank</th><th>Waitlist #</th><th>Override</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="allotmentsBody">
+        <tr><td colspan="10" style="text-align:center;color:#999;padding:2rem;">Loading allotments...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- All Students -->
+<div class="card p-3">
+  <h2>All Students</h2>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr><th>USN</th><th>Name</th><th>Branch</th><th>CGPA</th><th>Allotment</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for student in all_students %}
+        {% with allotment=student.allotment_set.first %}
+        <tr>
+          <td>{{ student.usn }}</td>
+          <td>{{ student.user.get_full_name|default:student.user.username }}</td>
+          <td>{{ student.branch }}</td>
+          <td>{{ student.cgpa }}</td>
+          <td>
+            {% if allotment %}
+              {% if allotment.status == 'CONFIRMED' %}<span class="badge-confirmed">Confirmed - {{ allotment.elective.code }}</span>
+              {% elif allotment.status == 'WAITLISTED' %}<span class="badge-waitlisted">Waitlisted #{{ allotment.waitlist_position }} - {{ allotment.elective.code }}</span>
+              {% else %}<span class="badge-not">Not Allotted</span>{% endif %}
+            {% else %}<span style="color:#999;">No allotment</span>{% endif %}
+          </td>
+          <td>
+            {% if student.electivepreference_set.exists %}
+            <a href="{% url 'admin_reassign' student.id %}" class="btn-xs btn-reassign"
+               onclick="return confirm('Reassign {{ student.usn }}?')">Reassign</a>
+            {% else %}
+            <span style="color:#999;font-size:.75rem;">No prefs</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endwith %}
+        {% empty %}
+        <tr><td colspan="6" style="text-align:center;color:#999;padding:2rem;">No students registered.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+const FORCE_URL   = "{% url 'admin_force_confirm' 0 %}".replace('/0/', '/');
+const WAITLIST_URL = "{% url 'admin_reset_waitlist' 0 %}".replace('/0/', '/');
+const REASSIGN_URL = "{% url 'admin_reassign' 0 %}".replace('/0/', '/');
+
+function badge(status) {
+  if (status === 'CONFIRMED')   return '<span class="badge-confirmed">Confirmed</span>';
+  if (status === 'WAITLISTED')  return '<span class="badge-waitlisted">Waitlisted</span>';
+  return '<span class="badge-not">Not Allotted</span>';
+}
+
+function updateStat(id, val) {
+  const el = document.getElementById(id);
+  if (el && el.textContent.trim() !== String(val)) {
+    el.textContent = val;
+    el.closest('.stat-box').classList.remove('flash');
+    void el.closest('.stat-box').offsetWidth;
+    el.closest('.stat-box').classList.add('flash');
+  }
+}
+
+function refreshDashboard() {
+  // 1. Refresh allotments table + stats
+  fetch("{% url 'admin_live_data' %}")
+    .then(r => r.json())
+    .then(data => {
+      // Update stats
+      updateStat('stat-confirmed', data.stats.confirmed);
+      updateStat('stat-waitlisted', data.stats.waitlisted);
+      updateStat('stat-not', data.stats.not_allotted);
+
+      // Update allotments table
+      const tbody = document.getElementById('allotmentsBody');
+      if (!data.allotments || data.allotments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;padding:2rem;">No allotments found. Run the allotment engine first.</td></tr>';
+        return;
+      }
+
+      let html = '';
+      data.allotments.forEach(a => {
+        const electiveCell = a.elective_code
+          ? `<strong>${a.elective_code}</strong><br><small style="color:#666;">${a.elective_name}</small>`
+          : '—';
+
+        const overrideCell = a.is_admin_override
+          ? '<span class="badge-override">Override</span>' : '—';
+
+        let actions = '';
+        if (a.status !== 'CONFIRMED') {
+          actions += `<a href="${FORCE_URL}${a.allotment_id}/"
+            class="btn-xs btn-confirm"
+            onclick="return confirm('Force confirm ${a.usn}?')">Confirm</a> `;
+        }
+        if (a.status === 'CONFIRMED') {
+          actions += `<a href="${WAITLIST_URL}${a.allotment_id}/"
+            class="btn-xs btn-waitlist"
+            onclick="return confirm('Reset ${a.usn} to waitlist?')">Waitlist</a> `;
+        }
+        if (a.has_prefs) {
+          actions += `<a href="${REASSIGN_URL}${a.student_id}/"
+            class="btn-xs btn-reassign"
+            onclick="return confirm('Reassign ${a.usn} to best available?')">Reassign</a>`;
+        } else {
+          actions += `<span style="color:#999;font-size:.72rem;">No prefs</span>`;
+        }
+
+        html += `<tr>
+          <td>${a.usn}</td>
+          <td>${a.name}</td>
+          <td>${a.branch}</td>
+          <td>${a.cgpa}</td>
+          <td>${electiveCell}</td>
+          <td>${badge(a.status)}</td>
+          <td>${a.rank || '—'}</td>
+          <td>${a.waitlist_position ? '#' + a.waitlist_position : '—'}</td>
+          <td>${overrideCell}</td>
+          <td>${actions}</td>
+        </tr>`;
+      });
+      tbody.innerHTML = html;
+
+      document.getElementById('lastRefresh').textContent =
+        'Updated: ' + new Date().toLocaleTimeString();
+    })
+    .catch(() => {});
+
+  // 2. Refresh seat counts table
+  fetch("{% url 'seat_status' %}")
+    .then(r => r.json())
+    .then(data => {
+      let html = '<table><thead><tr><th>Code</th><th>Name</th><th>Total</th><th>Confirmed</th><th>Waitlisted</th><th>Available</th><th>Fill %</th><th>Branch Quotas</th></tr></thead><tbody>';
+      (data.electives || []).forEach(e => {
+        let usedPct = e.total > 0 ? Math.round(((e.total - e.available) / e.total) * 100) : 0;
+        let barColor = usedPct >= 90 ? '#dc3545' : usedPct >= 60 ? '#ffc107' : '#28a745';
+        let bq = '';
+        if (e.branch_quotas && Object.keys(e.branch_quotas).length) {
+          Object.entries(e.branch_quotas).forEach(([b, v]) => {
+            let dot = v.available === 0 ? '🔴' : v.available <= 2 ? '🟡' : '🟢';
+            bq += `<span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;font-size:.75rem;margin:1px;display:inline-block;">${dot} ${b}: ${v.available}/${v.quota}</span>`;
+          });
+        } else {
+          bq = '<span style="color:#999;font-size:.8rem;">No branch quota</span>';
+        }
+        html += `<tr>
+          <td><strong>${e.code}</strong></td><td>${e.name}</td><td>${e.total}</td>
+          <td style="color:#28a745;font-weight:700;">${e.confirmed||0}</td>
+          <td style="color:#ffc107;font-weight:700;">${e.waitlisted||0}</td>
+          <td style="color:${barColor};font-weight:700;">${e.available}</td>
+          <td>
+            <div style="background:#eee;border-radius:10px;height:12px;width:100px;overflow:hidden;display:inline-block;">
+              <div style="background:${barColor};height:100%;width:${usedPct}%;border-radius:10px;"></div>
+            </div>
+            <span style="font-size:.8rem;margin-left:4px;">${usedPct}%</span>
+          </td>
+          <td>${bq}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById('seat-table-area').innerHTML = html;
+    })
+    .catch(() => {});
+}
+
+// Run immediately then every 3 seconds
+refreshDashboard();
+setInterval(refreshDashboard, 3000);
+</script>
+{% endblock %}

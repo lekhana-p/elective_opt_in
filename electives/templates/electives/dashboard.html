@@ -1,0 +1,294 @@
+{% extends 'electives/base.html' %}
+{% block title %}Dashboard - {{ profile.usn }}{% endblock %}
+{% block content %}
+
+{% if show_popup %}
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-modal="true" role="dialog">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border:3px solid #28a745; border-radius:16px;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#28a745,#20c997); color:white; border-radius:12px 12px 0 0;">
+        <h5 class="modal-title fw-bold">Congratulations!</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <div style="font-size:4rem;">✅</div>
+        <h4 class="mt-2 fw-bold">You have been allotted!</h4>
+        {% if allotment and allotment.elective %}
+        <p style="font-size:1.3rem; font-weight:700; color:#20c997; margin-top:1rem;">
+          {{ allotment.elective.code }} - {{ allotment.elective.name }}
+        </p>
+        <p style="color:#666;">
+          Your <strong>{{ allotment.preference_rank_given }}
+          {% if allotment.preference_rank_given == 1 %}st
+          {% elif allotment.preference_rank_given == 2 %}nd
+          {% else %}rd{% endif %} choice</strong> was confirmed!
+        </p>
+        {% endif %}
+        <p style="color:#28a745; font-weight:600;">Your seat is confirmed. Best of luck!</p>
+      </div>
+      <div class="modal-footer justify-content-center" style="border:none;">
+        <button type="button" class="btn btn-success px-5 fw-bold" data-bs-dismiss="modal">Awesome, Thanks!</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if has_pending_choice %}
+<div style="background:linear-gradient(135deg,#fff3cd,#ffeaa7); border:2px solid #ffc107; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;">
+  <h3 style="color:#856404; margin:0 0 0.5rem;">You have been promoted to multiple electives!</h3>
+  <p style="color:#856404; margin:0 0 1rem;">
+    You now have confirmed seats in more than one elective. Please choose ONE to keep — your other seat will be released to the next waitlisted student.
+  </p>
+  <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+    {% for a in pending_choice_allotments %}
+    <form method="post" action="{% url 'choose_elective' %}"
+          onsubmit="return confirm('Keep {{ a.elective.code }} - {{ a.elective.name }}? Your other confirmed seat will be released.')">
+      {% csrf_token %}
+      <input type="hidden" name="keep_allotment_id" value="{{ a.id }}">
+      <button type="submit" style="background:#28a745; color:white; border:none; border-radius:8px; padding:0.7rem 1.5rem; font-size:1rem; font-weight:700; cursor:pointer;">
+        Keep {{ a.elective.code }} - {{ a.elective.name }}
+        {% if a.preference_rank_given %}(Rank {{ a.preference_rank_given }}){% endif %}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Welcome, {{ profile.user.first_name|default:profile.user.username }}!</h1>
+  <p>Your elective opt-in dashboard - USN: <strong>{{ profile.usn }}</strong></p>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h2>Student Profile</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <tr><td><strong>Name</strong></td><td>{{ profile.user.get_full_name }}</td></tr>
+          <tr><td><strong>USN</strong></td><td>{{ profile.usn }}</td></tr>
+          <tr>
+            <td><strong>CGPA</strong></td>
+            <td>
+              {% if profile.cgpa >= 8 %}
+                <span style="font-size:1.3rem;font-weight:800;color:#28a745;">{{ profile.cgpa }}</span>
+              {% elif profile.cgpa >= 6 %}
+                <span style="font-size:1.3rem;font-weight:800;color:#ffc107;">{{ profile.cgpa }}</span>
+              {% else %}
+                <span style="font-size:1.3rem;font-weight:800;color:#dc3545;">{{ profile.cgpa }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr><td><strong>Branch</strong></td><td>{{ profile.branch }}</td></tr>
+          <tr><td><strong>Semester</strong></td><td>{{ profile.semester }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card p-3">
+      <h2>Allotment Result</h2>
+      {% if has_pending_choice %}
+        <div style="text-align:center;padding:1rem;">
+          <div style="font-size:3rem;">⚠️</div>
+          <h3 style="color:#ffc107;margin:.5rem 0;">Action Required</h3>
+          <p style="color:#666;">You have multiple confirmed seats. Please choose one above.</p>
+        </div>
+      {% elif allotment %}
+        {% if allotment.status == 'CONFIRMED' %}
+          <div style="text-align:center;padding:1rem;">
+            <div style="font-size:3rem;">🎉</div>
+            <h3 style="color:#28a745;margin:.5rem 0;">Confirmed!</h3>
+            <p style="font-size:1.2rem;font-weight:700;">{{ allotment.elective.name }}</p>
+            <p style="color:#666;">{{ allotment.elective.code }}</p>
+            <span class="badge" style="background:#28a745;padding:.4rem .9rem;border-radius:20px;">
+              Got {{ allotment.preference_rank_given }}
+              {% if allotment.preference_rank_given == 1 %}st
+              {% elif allotment.preference_rank_given == 2 %}nd
+              {% else %}rd{% endif %} Choice
+            </span>
+            {% if allotment.is_admin_override %}
+              <br><span class="badge" style="background:#ffc107;color:#000;margin-top:.5rem;padding:.3rem .8rem;border-radius:20px;">Admin Override</span>
+            {% endif %}
+            <div style="margin-top:1.5rem;">
+              <form method="post" action="{% url 'withdraw' %}"
+                    onsubmit="return confirm('Withdraw from this elective? The next waitlisted student will get your seat.')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm">Withdraw (Free up seat)</button>
+              </form>
+            </div>
+          </div>
+        {% elif allotment.status == 'WAITLISTED' %}
+          <div style="text-align:center;padding:1rem;">
+            <div style="font-size:3rem;">⏳</div>
+            <h3 style="color:#ffc107;margin:.5rem 0;">Waitlisted</h3>
+            <p style="color:#666;">{{ allotment.elective.name }} ({{ allotment.elective.code }})</p>
+            {% if allotment.waitlist_position %}
+            <span class="badge" style="background:#ffc107;color:#000;padding:.4rem .9rem;border-radius:20px;">
+              Waitlist Position #{{ allotment.waitlist_position }}
+            </span>
+            {% endif %}
+            <p style="color:#666;margin-top:1rem;font-size:.9rem;">
+              You will be automatically promoted if a seat becomes available.
+            </p>
+          </div>
+        {% else %}
+          <div style="text-align:center;padding:1rem;">
+            <div style="font-size:3rem;">😔</div>
+            <h3 style="color:#dc3545;margin:.5rem 0;">Not Allotted</h3>
+            <p style="color:#666;">All preferred electives were full. Please contact coordinator.</p>
+            <a href="{% url 'opt_in' %}" class="btn btn-primary btn-sm">Change Preferences</a>
+          </div>
+        {% endif %}
+      {% else %}
+        <div style="text-align:center;padding:1rem;">
+          <div style="font-size:3rem;">⏳</div>
+          <h3 style="color:#ffc107;margin:.5rem 0;">Pending</h3>
+          <p style="color:#666;">Allotment not yet run. Check back later.</p>
+          <a href="{% url 'opt_in' %}" class="btn btn-primary btn-sm">Submit Preferences</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if preferences %}
+<div class="card p-3" style="margin-top:1.5rem;">
+  <h2>Visual Preference Flow - Rank to Allocation Status</h2>
+  <p style="color:#666;font-size:.9rem;margin-bottom:1rem;">
+    Green = Confirmed | Yellow = Waitlisted | Red = Not Allotted | Grey = Pending
+  </p>
+  <canvas id="preferenceFlowChart" height="120"></canvas>
+</div>
+{% endif %}
+
+<div class="card p-3" style="margin-top:1.5rem;">
+  <h2>Your Submitted Preferences</h2>
+  {% if preferences %}
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Priority</th>
+            <th>Elective Code</th>
+            <th>Elective Name</th>
+            <th>Faculty</th>
+            <th>Status</th>
+            <th>Submitted At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pref in preferences %}
+          <tr>
+            <td>
+              {% if pref.rank == 1 %}1st
+              {% elif pref.rank == 2 %}2nd
+              {% else %}3rd{% endif %}
+            </td>
+            <td><strong>{{ pref.elective.code }}</strong></td>
+            <td>{{ pref.elective.name }}</td>
+            <td>{{ pref.elective.faculty }}</td>
+            <td>
+              {% if allotment and allotment.elective_id == pref.elective_id %}
+                {% if allotment.status == 'CONFIRMED' %}
+                  <span style="color:#28a745;font-weight:700;">Confirmed</span>
+                {% elif allotment.status == 'WAITLISTED' %}
+                  <span style="color:#ffc107;font-weight:700;">Waitlisted{% if allotment.waitlist_position %} #{{ allotment.waitlist_position }}{% endif %}</span>
+                {% else %}
+                  <span style="color:#dc3545;font-weight:700;">Not Allotted</span>
+                {% endif %}
+              {% else %}
+                <span style="color:#999;">Pending</span>
+              {% endif %}
+            </td>
+            <td style="color:#999;font-size:.85rem;">{{ pref.submitted_at|date:"d M Y, H:i" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color:#666;">You haven't submitted preferences yet. <a href="{% url 'opt_in' %}">Submit now</a></p>
+  {% endif %}
+</div>
+
+<div class="row g-2" style="margin-top:1rem;">
+  <div class="col-md-4"><a href="{% url 'opt_in' %}" class="btn btn-primary w-100">Submit Preferences</a></div>
+  <div class="col-md-4"><a href="{% url 'results' %}" class="btn btn-secondary w-100">View Results</a></div>
+  <div class="col-md-4"><a href="{% url 'analytics' %}" class="btn btn-secondary w-100">Analytics</a></div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if show_popup %}
+document.addEventListener("DOMContentLoaded", function () {
+  var modalEl = document.getElementById("confirmationModal");
+  if (modalEl) {
+    var modal = new bootstrap.Modal(modalEl, { backdrop: "static", keyboard: false });
+    modal.show();
+  }
+});
+{% endif %}
+
+{% if preferences %}
+document.addEventListener("DOMContentLoaded", function () {
+  const ctx = document.getElementById("preferenceFlowChart");
+  if (!ctx) return;
+  new Chart(ctx.getContext("2d"), {
+    type: "bar",
+    data: {
+      labels: {{ flow_labels_json|safe }},
+      datasets: [{
+        label: "Allocation Status",
+        data: {{ flow_values_json|safe }},
+        backgroundColor: {{ flow_colors_json|safe }},
+        borderColor: {{ flow_colors_json|safe }},
+        borderWidth: 1,
+        borderRadius: 8,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const val = ctx.raw;
+              if (val === 100) return "CONFIRMED";
+              if (val === 60)  return "WAITLISTED";
+              if (val === 20)  return "NOT ALLOTTED";
+              return "PENDING - allotment not run yet";
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          min: 0, max: 110,
+          ticks: {
+            callback: function(val) {
+              if (val === 100) return "Confirmed";
+              if (val === 60)  return "Waitlisted";
+              if (val === 20)  return "Not Allotted";
+              if (val === 35)  return "Pending";
+              return "";
+            },
+            maxTicksLimit: 5,
+          },
+          grid: { color: "rgba(0,0,0,0.05)" }
+        },
+        y: { ticks: { font: { size: 13, weight: "bold" } } }
+      }
+    }
+  });
+});
+{% endif %}
+</script>
+{% endblock %}

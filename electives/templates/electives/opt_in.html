@@ -1,0 +1,120 @@
+{% extends 'electives/base.html' %}
+{% block title %}Opt-In — Elective Portal{% endblock %}
+
+{% block content %}
+<div style="max-width:680px; margin:0 auto;">
+    <div class="page-header">
+        <h1>📋 Elective Opt-In</h1>
+        <p>Select your Top 3 elective preferences in priority order</p>
+    </div>
+
+    <div class="card" style="background:linear-gradient(135deg,var(--primary),var(--accent2)); color:white;">
+        <h2 style="color:white; border-color:var(--accent);">
+            <span class="live-dot"></span> Live Availability
+        </h2>
+        <div id="live-seats-mini" style="display:flex; flex-wrap:wrap; gap:0.8rem; margin-top:0.8rem;">
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    {% if user.is_authenticated %}
+    <div class="card">
+        <h2>Submit Your Preferences</h2>
+        <p style="color:var(--muted); margin-bottom:1.5rem; font-size:0.9rem;">
+            ⚠️ You can update before final allotment run. Choose carefully!
+        </p>
+
+        <form method="post" id="opt-in-form">
+            {% csrf_token %}
+
+            <div class="form-group" style="border-left:4px solid var(--success); padding-left:1rem;">
+                <label style="color:var(--success); font-size:1rem;">🥇 {{ form.first_choice.label }}</label>
+                {{ form.first_choice }}
+                {% if form.first_choice.errors %}
+                    <small style="color:red;">{{ form.first_choice.errors.0 }}</small>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="border-left:4px solid var(--warning); padding-left:1rem;">
+                <label style="color:var(--warning); font-size:1rem;">🥈 {{ form.second_choice.label }}</label>
+                {{ form.second_choice }}
+                {% if form.second_choice.errors %}
+                    <small style="color:red;">{{ form.second_choice.errors.0 }}</small>
+                {% endif %}
+            </div>
+
+            <div class="form-group" style="border-left:4px solid var(--danger); padding-left:1rem;">
+                <label style="color:var(--danger); font-size:1rem;">🥉 {{ form.third_choice.label }}</label>
+                {{ form.third_choice }}
+                {% if form.third_choice.errors %}
+                    <small style="color:red;">{{ form.third_choice.errors.0 }}</small>
+                {% endif %}
+            </div>
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-error">{{ form.non_field_errors.0 }}</div>
+            {% endif %}
+
+            <div id="preview-box" style="display:none; background:#f8f9fa; border-radius:8px; padding:1rem; margin-bottom:1rem;">
+                <strong>Your Selection Preview:</strong>
+                <ol id="preview-list" style="margin-top:0.5rem; padding-left:1.5rem;"></ol>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%; padding:0.9rem; font-size:1rem;">
+                🚀 Submit Preferences
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;">
+        <h2>Login Required</h2>
+        <p>Please <a href="{% url 'login' %}">login</a> or <a href="{% url 'register' %}">register</a> to opt-in.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateMiniSeats() {
+    $.ajax({
+        url: "{% url 'seat_status' %}",
+        success: function(data) {
+            let html = "";
+            (data.electives || []).forEach(function(e) {
+                let color = e.available === 0 ? '#e74c3c' : (e.available <= 10 ? '#f39c12' : '#27ae60');
+                html += `<div style="background:rgba(255,255,255,0.15); padding:0.5rem 0.8rem; border-radius:6px; font-size:0.8rem; border-left:3px solid ${color}; min-width:120px;">
+                    <strong>${e.code}</strong><br>
+                    <span style="color:${color};">${e.available}/${e.total} seats</span>
+                </div>`;
+            });
+            $('#live-seats-mini').html(html || '<p>No active electives.</p>');
+        }
+    });
+}
+updateMiniSeats();
+setInterval(updateMiniSeats, 5000);
+
+function updatePreview() {
+    let c1 = $('#id_first_choice option:selected').text();
+    let c2 = $('#id_second_choice option:selected').text();
+    let c3 = $('#id_third_choice option:selected').text();
+    let items = [c1, c2, c3].filter(t => t && t.indexOf('Select') === -1);
+    if (items.length) {
+        $('#preview-list').html(items.map((t, i) => `<li><strong>Choice ${i+1}:</strong> ${t}</li>`).join(''));
+        $('#preview-box').show();
+    } else {
+        $('#preview-box').hide();
+    }
+}
+$('#id_first_choice, #id_second_choice, #id_third_choice').on('change', updatePreview);
+
+$('#opt-in-form').on('submit', function(e){
+    let vals = [$('#id_first_choice').val(), $('#id_second_choice').val(), $('#id_third_choice').val()].filter(Boolean);
+    if ((new Set(vals)).size !== vals.length) {
+        alert('⚠️ All 3 choices must be different electives!');
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+
+    {# BONUS FEATURE 4: Custom "Run Allotment" button inside Django Admin #}
+    <li>
+        <form method="post" action="{% url 'admin:run_allotment_admin' %}"
+              style="display:inline;"
+              onsubmit="return confirm('⚠️ This will CLEAR all existing allotments and re-run the algorithm. Are you sure?')">
+            {% csrf_token %}
+            <button type="submit"
+                    style="background:#e94560; color:white; border:none; padding:8px 16px;
+                           border-radius:4px; cursor:pointer; font-weight:bold; font-size:0.85rem;">
+                🚀 Run Allotment Algorithm
+            </button>
+        </form>
+    </li>
+
+    <li>
+        <a href="{% url 'export_csv' %}"
+           style="background:#1a1a2e; color:white; padding:8px 16px; border-radius:4px;
+                  text-decoration:none; font-weight:bold; font-size:0.85rem; display:inline-block;">
+            📥 Export All CSV
+        </a>
+    </li>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends 'electives/base.html' %}
+{% block title %}Analytics — Elective Portal{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-grid{
+        display:grid;
+        grid-template-columns:repeat(2,1fr);
+        gap:1rem;
+    }
+    .chart-card{
+        background:#fff;
+        border:1px solid #e8edf7;
+        border-radius:12px;
+        padding:1rem;
+        box-shadow:0 2px 10px rgba(0,0,0,.05);
+    }
+    .chart-card h5{
+        margin-bottom:.8rem;
+        color:var(--primary);
+        font-weight:700;
+    }
+    .kpi-row{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:1rem;
+        margin-bottom:1rem;
+    }
+    .kpi{
+        background:#fff;
+        border:1px solid #e8edf7;
+        border-radius:10px;
+        padding:.9rem;
+        text-align:center;
+    }
+    .kpi .v{ font-size:1.4rem; font-weight:800; color:var(--primary); }
+    .kpi .l{ font-size:.8rem; color:var(--muted); }
+    @media (max-width: 992px){
+        .chart-grid{ grid-template-columns:1fr; }
+        .kpi-row{ grid-template-columns:repeat(2,1fr); }
+    }
+    @media (max-width: 576px){
+        .kpi-row{ grid-template-columns:1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📊 Live Analytics Dashboard</h1>
+    <p>Data refreshes every 10 seconds via AJAX.</p>
+</div>
+
+<div class="kpi-row">
+    <div class="kpi"><div class="v" id="k-total">0</div><div class="l">Total Allotments</div></div>
+    <div class="kpi"><div class="v" id="k-confirmed">0</div><div class="l">Confirmed</div></div>
+    <div class="kpi"><div class="v" id="k-not">0</div><div class="l">Not Allotted</div></div>
+    <div class="kpi"><div class="v" id="k-rate">0%</div><div class="l">Success Rate</div></div>
+</div>
+
+<div class="chart-grid">
+    <div class="chart-card">
+        <h5>Preference Distribution (Rank 1/2/3)</h5>
+        <canvas id="cPref"></canvas>
+    </div>
+    <div class="chart-card">
+        <h5>Branch Demand</h5>
+        <canvas id="cBranch"></canvas>
+    </div>
+    <div class="chart-card">
+        <h5>Allotment Status</h5>
+        <canvas id="cStatus"></canvas>
+    </div>
+    <div class="chart-card">
+        <h5>Seat Fill Rate</h5>
+        <canvas id="cSeat"></canvas>
+    </div>
+    <div class="chart-card" style="grid-column:1 / -1;">
+        <h5>CGPA Band vs Outcome</h5>
+        <canvas id="cCgpa"></canvas>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let prefChart, branchChart, statusChart, seatChart, cgpaChart;
+
+function buildOrUpdate(chartRef, ctx, cfg){
+    if (chartRef) {
+        chartRef.data = cfg.data;
+        chartRef.options = cfg.options || {};
+        chartRef.update();
+        return chartRef;
+    }
+    return new Chart(ctx, cfg);
+}
+
+function loadAnalytics(){
+    $.getJSON("{% url 'analytics_data' %}", function(data){
+        const pref = data.preference_dist || [];
+        const branch = data.branch_demand || [];
+        const status = data.allotment_status || {};
+        const seat = data.seat_fill || [];
+        const cgpa = data.cgpa_bands || [];
+        const sum = data.allotment_summary || {};
+
+        // KPI
+        $('#k-total').text(sum.total || 0);
+        $('#k-confirmed').text(sum.confirmed || 0);
+        $('#k-not').text(sum.not_allotted || 0);
+        $('#k-rate').text((sum.total || 0) > 0 ? Math.round((sum.confirmed/sum.total)*100) + '%' : '0%');
+
+        // Preference chart
+        prefChart = buildOrUpdate(prefChart, document.getElementById('cPref'), {
+            type:'bar',
+            data:{
+                labels: pref.map(x => x.elective),
+                datasets:[
+                    {label:'Rank 1', data:pref.map(x => x.rank1), backgroundColor:'#27ae60'},
+                    {label:'Rank 2', data:pref.map(x => x.rank2), backgroundColor:'#f39c12'},
+                    {label:'Rank 3', data:pref.map(x => x.rank3), backgroundColor:'#e74c3c'},
+                ]
+            },
+            options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+        });
+
+        // Branch demand
+        branchChart = buildOrUpdate(branchChart, document.getElementById('cBranch'), {
+            type:'doughnut',
+            data:{
+                labels: branch.map(x => x.branch),
+                datasets:[{
+                    data: branch.map(x => x.count),
+                    backgroundColor:['#3d6fd4','#0f3460','#27ae60','#f39c12','#e74c3c','#8e44ad','#16a085']
+                }]
+            },
+            options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+        });
+
+        // Status
+        statusChart = buildOrUpdate(statusChart, document.getElementById('cStatus'), {
+            type:'pie',
+            data:{
+                labels:Object.keys(status),
+                datasets:[{
+                    data:Object.values(status),
+                    backgroundColor:['#27ae60','#f39c12','#e74c3c']
+                }]
+            },
+            options:{responsive:true, plugins:{legend:{position:'bottom'}}}
+        });
+
+        // Seat fill
+        seatChart = buildOrUpdate(seatChart, document.getElementById('cSeat'), {
+            type:'bar',
+            data:{
+                labels: seat.map(x => x.elective),
+                datasets:[
+                    {label:'Filled', data:seat.map(x => x.filled), backgroundColor:'#0f3460'},
+                    {label:'Total', data:seat.map(x => x.total), backgroundColor:'#dbe7ff'}
+                ]
+            },
+            options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+        });
+
+        // CGPA bands
+        cgpaChart = buildOrUpdate(cgpaChart, document.getElementById('cCgpa'), {
+            type:'bar',
+            data:{
+                labels: cgpa.map(x => x.band),
+                datasets:[
+                    {label:'Confirmed', data:cgpa.map(x => x.confirmed), backgroundColor:'#27ae60'},
+                    {label:'Not Allotted', data:cgpa.map(x => x.not_allotted), backgroundColor:'#e74c3c'}
+                ]
+            },
+            options:{responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true}}}
+        });
+    });
+}
+
+loadAnalytics();
+setInterval(loadAnalytics, 10000);
+</script>
+{% endblock %}

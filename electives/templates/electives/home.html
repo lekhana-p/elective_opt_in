@@ -1,0 +1,113 @@
+{% extends 'electives/base.html' %}
+{% block title %}Home — Elective Portal{% endblock %}
+
+{% block content %}
+<div class="page-header" style="background:linear-gradient(135deg,var(--primary),var(--accent2)); color:white; border:none;">
+    <h1 style="color:white;">🎓 Priority-Based Elective Opt-In Portal</h1>
+    <p style="color:rgba(255,255,255,.88);">
+        Real-time seat updates, ranked preferences, and CGPA-priority allotment.
+    </p>
+    <div style="margin-top:1rem;">
+        {% if user.is_authenticated and not user.is_staff %}
+            <a href="{% url 'opt_in' %}" class="btn btn-light">🚀 Submit Preferences</a>
+            <a href="{% url 'dashboard' %}" class="btn btn-outline-light">Dashboard</a>
+        {% elif user.is_authenticated and user.is_staff %}
+            <a href="{% url 'admin_panel' %}" class="btn btn-light">⚙️ Open Admin Panel</a>
+            <a href="{% url 'analytics' %}" class="btn btn-outline-light">📊 Analytics</a>
+        {% else %}
+            <a href="{% url 'register' %}" class="btn btn-light">Create Account</a>
+            <a href="{% url 'login' %}" class="btn btn-outline-light">Login</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h2><span class="live-dot"></span> Live Seat Availability</h2>
+    <div id="seat-grid" class="row g-3">
+        <div class="col-12"><p style="color:var(--muted);">Loading seat data...</p></div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>How It Works</h2>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div style="padding:1rem; border:1px solid #e8edf7; border-radius:10px; background:#fff;">
+                <h5>1) Opt-In Preferences</h5>
+                <p style="margin:0; color:var(--muted); font-size:.9rem;">
+                    Students submit 3 ranked elective choices.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div style="padding:1rem; border:1px solid #e8edf7; border-radius:10px; background:#fff;">
+                <h5>2) CGPA Priority</h5>
+                <p style="margin:0; color:var(--muted); font-size:.9rem;">
+                    Allotment runs in descending CGPA with branch quota checks.
+                </p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div style="padding:1rem; border:1px solid #e8edf7; border-radius:10px; background:#fff;">
+                <h5>3) Publish Results</h5>
+                <p style="margin:0; color:var(--muted); font-size:.9rem;">
+                    Confirmed/Not-allotted outcomes shown instantly.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadSeats() {
+    $.getJSON("{% url 'seat_status' %}", function(data) {
+        const items = data.electives || [];
+        let html = '';
+
+        if (!items.length) {
+            html = `<div class="col-12"><p style="color:var(--muted);">No active electives available.</p></div>`;
+        } else {
+            items.forEach(e => {
+                const usedPct = 100 - (e.percentage || 0);
+                const color = e.available === 0 ? '#e74c3c' : (e.available <= 10 ? '#f39c12' : '#27ae60');
+
+                let quotaHtml = '';
+                if (e.branch_quotas && Object.keys(e.branch_quotas).length) {
+                    Object.entries(e.branch_quotas).forEach(([b, v]) => {
+                        quotaHtml += `<span style="display:inline-block; margin:2px; padding:2px 8px; border-radius:999px; background:#f1f5ff; font-size:.75rem;">
+                            ${b}: ${v.available}/${v.quota}
+                        </span>`;
+                    });
+                } else {
+                    quotaHtml = `<span style="color:var(--muted); font-size:.8rem;">No branch quota</span>`;
+                }
+
+                html += `
+                <div class="col-md-6 col-lg-4">
+                    <div style="background:#fff; border:1px solid #e8edf7; border-radius:12px; padding:1rem; height:100%;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h5 style="margin:0; color:var(--primary);">${e.code}</h5>
+                            <span style="color:${color}; font-weight:700;">${e.available}/${e.total}</span>
+                        </div>
+                        <p style="margin:.4rem 0 .8rem; color:#4b5563;">${e.name}</p>
+
+                        <div style="height:8px; background:#e9eef8; border-radius:6px; overflow:hidden; margin-bottom:.55rem;">
+                            <div style="width:${usedPct}%; height:100%; background:${color};"></div>
+                        </div>
+                        <small style="color:var(--muted);">${usedPct}% filled</small>
+
+                        <div style="margin-top:.6rem;">${quotaHtml}</div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        $('#seat-grid').html(html);
+    });
+}
+loadSeats();
+setInterval(loadSeats, 5000);
+</script>
+{% endblock %}

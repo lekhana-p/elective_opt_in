@@ -1,0 +1,122 @@
+{% extends 'electives/base.html' %}
+{% block title %}Results — Elective Allotment{% endblock %}
+
+{% block content %}
+{% url 'analytics' as analytics_url %}
+{% url 'export_csv' as export_csv_url %}
+{% url 'export_allotment_pdf' as export_pdf_url %}
+
+<div class="page-header">
+    <h1>📋 Allotment Results</h1>
+    <p>Final elective allotment based on CGPA-priority ranked choice algorithm</p>
+</div>
+
+{% if not user.is_staff %}
+    {% if allotment %}
+        {% if allotment.status == 'CONFIRMED' %}
+            <div class="card" style="border-left:5px solid var(--success);">
+        {% else %}
+            <div class="card" style="border-left:5px solid var(--danger);">
+        {% endif %}
+                <h2>Your Result</h2>
+                {% if allotment.status == 'CONFIRMED' %}
+                    <p style="font-size:1.05rem;">
+                        🎉 Confirmed for
+                        <strong style="color:var(--success);">{{ allotment.elective.name }}</strong>
+                        ({{ allotment.elective.code }}) —
+                        <strong>Choice {{ allotment.preference_rank_given }}</strong>.
+                    </p>
+                {% elif allotment.status == 'WAITLISTED' %}
+                    <p style="color:var(--warning);">⏳ You are waitlisted currently.</p>
+                {% else %}
+                    <p style="color:var(--danger);">❌ You were not allotted an elective.</p>
+                {% endif %}
+            </div>
+    {% else %}
+        <div class="card" style="text-align:center;">
+            <p style="color:var(--muted); margin:0;">Results are not published yet.</p>
+        </div>
+    {% endif %}
+{% endif %}
+
+{% if user.is_staff %}
+<div class="card">
+    <h2 style="margin-bottom:0.8rem;">All Allotments</h2>
+
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end; flex-wrap:wrap; margin-bottom:1rem;">
+        <a href="{{ analytics_url }}" class="btn btn-secondary">📊 Analytics</a>
+        {% if branch_filter %}
+            <a href="{{ export_csv_url }}?branch={{ branch_filter }}" class="btn btn-success">📥 CSV</a>
+            <a href="{{ export_pdf_url }}?branch={{ branch_filter }}" class="btn btn-danger">📄 PDF</a>
+        {% else %}
+            <a href="{{ export_csv_url }}" class="btn btn-success">📥 CSV</a>
+            <a href="{{ export_pdf_url }}" class="btn btn-danger">📄 PDF</a>
+        {% endif %}
+    </div>
+
+    <form method="get" style="margin:0 0 1rem 0;">
+        <label for="branch"><strong>Filter by branch:</strong></label>
+        <select name="branch" id="branch" onchange="this.form.submit()">
+            <option value="">All</option>
+            {% for b in branches %}
+                <option value="{{ b }}" {% if branch_filter == b %}selected{% endif %}>{{ b }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    <div style="overflow-x:auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>USN</th>
+                    <th>Name</th>
+                    <th>CGPA</th>
+                    <th>Branch</th>
+                    <th>Elective</th>
+                    <th>Status</th>
+                    <th>Rank</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in all_allotments %}
+                <tr>
+                    <td><strong>{{ a.student.usn }}</strong></td>
+                    <td>{{ a.student.user.get_full_name }}</td>
+                    <td>{{ a.student.cgpa }}</td>
+                    <td>{{ a.student.branch }}</td>
+                    <td>
+                        {% if a.elective %}
+                            <strong>{{ a.elective.code }}</strong><br>
+                            <small style="color:var(--muted);">{{ a.elective.name }}</small>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a.status == 'CONFIRMED' %}
+                            <span class="badge badge-success">✅ CONFIRMED</span>
+                        {% elif a.status == 'WAITLISTED' %}
+                            <span class="badge badge-warning">⏳ WAITLISTED</span>
+                        {% else %}
+                            <span class="badge badge-danger">❌ NOT ALLOTTED</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a.preference_rank_given %}
+                            Choice {{ a.preference_rank_given }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="text-align:center; color:var(--muted);">No results found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

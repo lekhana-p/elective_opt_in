@@ -1,0 +1,75 @@
+{% extends 'electives/base.html' %}
+{% block title %}Register — Elective Portal{% endblock %}
+
+{% block content %}
+<div style="max-width:560px; margin:0 auto;">
+    <div class="card">
+        <h2>Student Registration</h2>
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>First Name</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}<small style="color:red;">{{ form.first_name.errors.0 }}</small>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label>Last Name</label>
+                    {{ form.last_name }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Username</label>
+                {{ form.username }}
+                {% if form.username.errors %}<small style="color:red;">{{ form.username.errors.0 }}</small>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Email</label>
+                {{ form.email }}
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>USN</label>
+                    {{ form.usn }}
+                    {% if form.usn.errors %}<small style="color:red;">{{ form.usn.errors.0 }}</small>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label>CGPA (0–10)</label>
+                    {{ form.cgpa }}
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Semester</label>
+                    {{ form.semester }}
+                </div>
+                <div class="form-group">
+                    <label>Branch</label>
+                    {{ form.branch }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Password</label>
+                {{ form.password1 }}
+            </div>
+
+            <div class="form-group">
+                <label>Confirm Password</label>
+                {{ form.password2 }}
+                {% if form.password2.errors %}<small style="color:red;">{{ form.password2.errors.0 }}</small>{% endif %}
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">Register →</button>
+        </form>
+        <p style="text-align:center; margin-top:1rem; color:var(--muted);">
+            Already registered? <a href="{% url 'login' %}" style="color:var(--accent);">Login here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

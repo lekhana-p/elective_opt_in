@@ -1,0 +1,50 @@
+{% extends 'electives/base.html' %}
+
+{% block title %}Run Allotment{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+
+      <div class="card shadow border-0">
+        <div class="card-header bg-dark text-white text-center py-3">
+          <h4 class="mb-0">⚙️ Run Allotment Algorithm</h4>
+        </div>
+        <div class="card-body p-4">
+
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <p class="text-muted text-center mb-4">
+            This will clear all previous <strong>NOT_ALLOTTED</strong> records and
+            re-run the CGPA-priority allotment algorithm for all students.
+            <br><br>
+            <span class="text-danger fw-bold">⚠️ This action cannot be undone.</span>
+          </p>
+
+          <form method="POST">
+            {% csrf_token %}
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-danger btn-lg">
+                ✅ Confirm &amp; Run Allotment
+              </button>
+              <a href="/" class="btn btn-outline-secondary btn-lg">
+                ✖ Cancel
+              </a>
+            </div>
+          </form>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
