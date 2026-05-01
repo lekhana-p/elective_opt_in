@@ -36,8 +36,7 @@ def _staff_required(view_fn):
 
 
 def home(request):
-    electives = Elective.objects.filter(is_active=True).order_by("code")
-    return render(request, "electives/home.html", {"electives": electives})
+    return HttpResponse("Working")
 
 
 def register_view(request):
