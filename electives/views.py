@@ -829,9 +829,7 @@ def admin_live_data(request):
             "not_allotted": not_allotted,
         }
     })
-path = "/Users/lekhanap/django-semihack-2026-ctrl-v/elective_portal/electives/urls.py"
-with open(path, "r") as f:
-    content = f.read()
+
 
 old = '    path("admin/reassign/<int:student_id>/", views.admin_reassign, name="admin_reassign"),'
 new = '    path("admin/reassign/<int:student_id>/", views.admin_reassign, name="admin_reassign"),\n    path("api/admin-live/", views.admin_live_data, name="admin_live_data"),'
