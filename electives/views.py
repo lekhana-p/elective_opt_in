@@ -36,7 +36,7 @@ def _staff_required(view_fn):
 
 
 def home(request):
-    return HttpResponse("Working")
+    return render(request, "electives/home.html")
 
 
 def register_view(request):
