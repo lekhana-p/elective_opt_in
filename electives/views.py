@@ -62,16 +62,22 @@ def login_view(request):
         if request.user.is_staff:
             return redirect("admin_panel")
         return redirect("dashboard")
+
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
+
         user = authenticate(request, username=username, password=password)
+
         if user is not None:
             login(request, user)
+
             if user.is_staff:
                 return redirect("admin_panel")
-            return redirect(request.GET.get("next", "dashboard"))
+            return redirect("dashboard")
+
         messages.error(request, "Invalid username or password.")
+
     return render(request, "electives/login.html")
 
 
@@ -89,8 +95,8 @@ def dashboard(request):
 
     try:
         profile = request.user.studentprofile
-    except StudentProfile.DoesNotExist:
-        messages.error(request, "No student profile found.")
+    except:
+        messages.error(request, "Student profile missing.")
         return redirect("home")
 
     preferences = (
