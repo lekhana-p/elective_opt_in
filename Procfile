@@ -1,0 +1,1 @@
+web: gunicorn elective_portal.wsgi

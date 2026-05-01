@@ -42,5 +42,8 @@ urlpatterns = [
     path("api/admin-live/", views.admin_live_data, name="admin_live_data"),
     path("api/admin-live/", views.admin_live_data, name="admin_live_data"),
     path("api/admin-live/", views.admin_live_data, name="admin_live_data"),
+    path("api/admin-live/", views.admin_live_data, name="admin_live_data"),
+    path("api/admin-live/", views.admin_live_data, name="admin_live_data"),
+    path("api/admin-live/", views.admin_live_data, name="admin_live_data"),
     
 ]

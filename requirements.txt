@@ -1,1 +1,10 @@
-Django>=4.2
+asgiref==3.11.1
+charset-normalizer==3.4.7
+Django==6.0.4
+gunicorn==25.3.0
+packaging==26.2
+pillow==12.2.0
+psycopg2-binary==2.9.12
+reportlab==4.4.10
+sqlparse==0.5.5
+whitenoise==6.12.0

@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-elective-portal-hackathon-2026-sjbit-key'
 
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -87,3 +87,8 @@ MESSAGE_TAGS = {
     messages.WARNING: 'warning',
     messages.ERROR: 'error',
 }
+
+ALLOWED_HOSTS= ['*']
+
+import os
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
