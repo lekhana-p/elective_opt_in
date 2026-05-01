@@ -833,12 +833,3 @@ def admin_live_data(request):
 
 old = '    path("admin/reassign/<int:student_id>/", views.admin_reassign, name="admin_reassign"),'
 new = '    path("admin/reassign/<int:student_id>/", views.admin_reassign, name="admin_reassign"),\n    path("api/admin-live/", views.admin_live_data, name="admin_live_data"),'
-
-if old in content:
-    content = content.replace(old, new)
-    print("OK")
-else:
-    print("NOT FOUND - add manually")
-
-with open(path, "w") as f:
-    f.write(content)
