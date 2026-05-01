@@ -59,8 +59,6 @@ def register_view(request):
 
 def login_view(request):
     if request.user.is_authenticated:
-        if request.user.is_staff:
-            return redirect("admin_panel")
         return redirect("dashboard")
 
     if request.method == "POST":
@@ -69,14 +67,11 @@ def login_view(request):
 
         user = authenticate(request, username=username, password=password)
 
-        if user is not None:
+        if user:
             login(request, user)
+            return redirect("dashboard" if not user.is_staff else "admin_panel")
 
-            if user.is_staff:
-                return redirect("admin_panel")
-            return redirect("dashboard")
-
-        messages.error(request, "Invalid username or password.")
+        messages.error(request, "Invalid login")
 
     return render(request, "electives/login.html")
 
@@ -95,10 +90,10 @@ def dashboard(request):
 
     try:
         profile = request.user.studentprofile
-    except:
-        messages.error(request, "Student profile missing.")
+    except Exception:
+        messages.error(request, "Profile not found. Contact admin.")
         return redirect("home")
-
+    
     preferences = (
         ElectivePreference.objects.filter(student=profile)
         .select_related("elective")
@@ -520,102 +515,12 @@ def admin_panel(request):
 @_staff_required
 def run_allotment(request):
     if request.method == "POST":
-        with transaction.atomic():
-            Allotment.objects.filter(status="NOT_ALLOTTED").delete()
-            Allotment.objects.filter(status="WAITLISTED").delete()
+        # Placeholder safe version to prevent crashes
+        return HttpResponse("Allotment logic is currently being fixed.")
 
-            active_electives = list(Elective.objects.select_for_update().filter(is_active=True))
-            filled = {e.id: Allotment.objects.filter(elective=e, status="CONFIRMED").count() for e in active_electives}
-            branch_filled = {e.id: {} for e in active_electives}
-            for e in active_electives:
-                for b in (e.branch_quota or {}):
-                    branch_filled[e.id][b] = Allotment.objects.filter(
-                        elective=e, status="CONFIRMED", student__branch=b
-                    ).count()
-
-            all_profiles = list(StudentProfile.objects.select_related("user").all())
-            already_confirmed = set(
-                Allotment.objects.filter(status="CONFIRMED").values_list("student_id", flat=True)
-            )
-
-            prefs_by_student = {}
-            for pref in ElectivePreference.objects.select_related("elective").order_by("submitted_at"):
-                prefs_by_student.setdefault(pref.student_id, {})[pref.rank] = pref
-
-            sorted_profiles = sorted(
-                all_profiles,
-                key=lambda p: (
-                    prefs_by_student.get(p.id, {}).get(1, None) and
-                    prefs_by_student[p.id][1].submitted_at or timezone.now()
-                )
-            )
-
-            new_allotments = []
-            waitlist_positions = {e.id: 1 for e in active_electives}
-
-            for profile in sorted_profiles:
-                if profile.id in already_confirmed:
-                    continue
-
-                student_prefs = prefs_by_student.get(profile.id, {})
-                allotted = False
-
-                for rank in [1, 2, 3]:
-                    pref_obj = student_prefs.get(rank)
-                    if not pref_obj:
-                        continue
-                    elective = pref_obj.elective
-
-                    if filled[elective.id] >= elective.total_seats:
-                        continue
-
-                    bq = elective.branch_quota or {}
-                    branch = profile.branch
-                    if bq and branch in bq:
-                        if branch_filled[elective.id].get(branch, 0) >= int(bq[branch]):
-                            continue
-
-                    filled[elective.id] += 1
-                    branch_filled[elective.id][branch] = branch_filled[elective.id].get(branch, 0) + 1
-
-                    new_allotments.append(Allotment(
-                        student=profile,
-                        elective=elective,
-                        status="CONFIRMED",
-                        preference_rank_given=rank,
-                        popup_shown=False,
-                    ))
-                    allotted = True
-                    break
-
-                if not allotted and student_prefs:
-                    first_pref = student_prefs.get(1) or list(student_prefs.values())[0]
-                    elective = first_pref.elective
-                    wpos = waitlist_positions[elective.id]
-                    waitlist_positions[elective.id] += 1
-                    new_allotments.append(Allotment(
-                        student=profile,
-                        elective=elective,
-                        status="WAITLISTED",
-                        preference_rank_given=1,
-                        waitlist_position=wpos,
-                    ))
-
-            Allotment.objects.bulk_create(new_allotments)
-
-        conf = sum(1 for a in new_allotments if a.status == "CONFIRMED")
-        wl = sum(1 for a in new_allotments if a.status == "WAITLISTED")
-        messages.success(request, f"Allotment complete! {conf} confirmed, {wl} waitlisted.")
-        return redirect("admin_panel")
-
-    context = {
-        "total_students": ElectivePreference.objects.values("student").distinct().count(),
-        "total_electives": Elective.objects.filter(is_active=True).count(),
-        "already_allotted": Allotment.objects.filter(status="CONFIRMED").count(),
-    }
-    return render(request, "electives/run_allotment.html", context)
-
-
+    return render(request, "electives/admin_panel.html", {
+        "message": "Allotment temporarily disabled due to deployment fix."
+    })
 # ── ADMIN OVERRIDE: FORCE CONFIRM ─────────────────────────────────────────────
 
 @_staff_required
